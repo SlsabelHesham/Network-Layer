@@ -5,15 +5,20 @@ import 'api_config.dart';
 import 'api_methods.dart';
 import 'helpers/base_api_result.dart';
 import 'helpers/http_request_type.dart';
+import 'interceptors/auth_interceptor.dart';
 
 export 'helpers/http_request_type.dart';
 export 'package:network_layer/network_layer.dart';
 
 class NetworkLayer {
   static final ApiMethods _api = ApiMethodsImpl();
+  static AuthInterceptor? _authInterceptor;
 
-  static void init({required String baseUrl}) {
+  static void init({required String baseUrl, AuthInterceptor? authInterceptor}) {
     ApiConfig.init(baseUrl: baseUrl);
+    if (authInterceptor != null) {
+      setAuthInterceptor(authInterceptor);
+    }
   }
 
   static Future<BaseApiResult<T>> request<T>(
@@ -39,4 +44,18 @@ class NetworkLayer {
       sessionKey: sessionKey,
     );
   }
+
+  static void setAuthInterceptor(AuthInterceptor authInterceptor) {
+    _authInterceptor = authInterceptor;
+    ApiConfig.setAuthInterceptor(authInterceptor);
+  }
+
+  static void removeAuthInterceptor() {
+    _authInterceptor = null;
+    ApiConfig.removeAuthInterceptor();
+  }
+
+  static AuthInterceptor? get authInterceptor => _authInterceptor;
+
+  static String? get baseUrl => ApiConfig.dio.options.baseUrl;
 }
