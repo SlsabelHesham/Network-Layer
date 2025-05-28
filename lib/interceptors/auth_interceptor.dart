@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class TokenStorage {
   Future<String?> getAccessToken();
@@ -13,28 +14,46 @@ typedef OnTokenRefreshed = void Function(String accessToken, String refreshToken
 typedef OnRefreshFailed = void Function();
 
 class AuthInterceptor extends InterceptorsWrapper {
-  final TokenStorage tokenStorage;
+  late final TokenStorage tokenStorage;
   final String refreshTokenEndpoint;
   final OnTokenRefreshed? onTokenRefreshed;
   final OnRefreshFailed? onRefreshFailed;
   final int unauthorizedStatusCode;
   final Map<String, String>? customHeaders;
+  final List<String> skipAuthPaths;
 
   late final Dio _dio;
   bool _isRefreshing = false;
   final _requestsNeedRetry = <({RequestOptions options, ErrorInterceptorHandler handler})>[];
 
   AuthInterceptor({
-    required this.tokenStorage,
     required this.refreshTokenEndpoint,
     this.onTokenRefreshed,
     this.onRefreshFailed,
     this.unauthorizedStatusCode = 401,
     this.customHeaders,
-  });
+    this.skipAuthPaths = const [],
+  }) {
+    tokenStorage = _SharedPreferencesTokenStorage();
+  }
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    if (_shouldSkipAuth(options.path)) {
+      if (customHeaders != null) {
+        options.headers.addAll(customHeaders!);
+      }
+      return handler.next(options);
+    }
+
+    final authRequired = options.extra['authorization_required'] ?? true;
+    if (!authRequired) {
+      if (customHeaders != null) {
+        options.headers.addAll(customHeaders!);
+      }
+      return handler.next(options);
+    }
+
     final accessToken = await tokenStorage.getAccessToken();
     if (accessToken != null && accessToken.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $accessToken';
@@ -80,6 +99,23 @@ class AuthInterceptor extends InterceptorsWrapper {
     }
   }
 
+  bool _shouldSkipAuth(String path) {
+    final defaultSkipPaths = [
+      '/api/Authorization/Login',
+      'api/Authorization/Login',
+      '/api/auth/login',
+      'api/auth/login',
+      '/login',
+      'login',
+    ];
+
+    final allSkipPaths = [...defaultSkipPaths, ...skipAuthPaths];
+
+    return allSkipPaths.any((skipPath) =>
+        path.toLowerCase().contains(skipPath.toLowerCase())
+    );
+  }
+
   Future<bool> _refreshToken() async {
     try {
       final refreshToken = await tokenStorage.getRefreshToken();
@@ -97,12 +133,15 @@ class AuthInterceptor extends InterceptorsWrapper {
         final newAccessToken = _extractTokenFromResponse(data, 'access_token');
         final newRefreshToken = _extractTokenFromResponse(data, 'refresh_token');
 
+        print("tokeeeeen ${newAccessToken} nnnn ${newRefreshToken}");
         if (newAccessToken != null) {
           await tokenStorage.setAccessToken(newAccessToken);
           if (newRefreshToken != null) {
             await tokenStorage.setRefreshToken(newRefreshToken);
           }
 
+          // todo
+          // check if this required
           onTokenRefreshed?.call(newAccessToken, newRefreshToken ?? refreshToken);
           return true;
         }
@@ -181,5 +220,41 @@ class AuthInterceptor extends InterceptorsWrapper {
       }
       return null;
     }
+  }
+}
+
+class _SharedPreferencesTokenStorage implements TokenStorage {
+  static const String _accessTokenKey = 'access_token';
+  static const String _refreshTokenKey = 'refresh_token';
+
+  @override
+  Future<String?> getAccessToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_accessTokenKey);
+  }
+
+  @override
+  Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshTokenKey);
+  }
+
+  @override
+  Future<void> setAccessToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_accessTokenKey, token);
+  }
+
+  @override
+  Future<void> setRefreshToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_refreshTokenKey, token);
+  }
+
+  @override
+  Future<void> clearTokens() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_accessTokenKey);
+    await prefs.remove(_refreshTokenKey);
   }
 }

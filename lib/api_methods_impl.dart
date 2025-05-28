@@ -13,16 +13,18 @@ import 'models/base_response.dart';
 class ApiMethodsImpl with CookiesFilter implements ApiMethods {
   @override
   Future<BaseApiResult<T>> request<T>(String url,
-      {required HttpRequestType type,
-      Map<String, dynamic>? params,
-      Map<String, dynamic>? data,
-      FormData? formData,
-      bool isConcreteMobile = false,
-      bool isLanguageAll = false,
-      bool hasToken = false,
-      bool hasApiKey = false,
-      String? sessionKey,
-      bool needKey = false}) async {
+      {
+        required HttpRequestType type,
+        Map<String, dynamic>? params,
+        Map<String, dynamic>? data,
+        FormData? formData,
+        bool isConcreteMobile = false,
+        bool isLanguageAll = false,
+        bool hasToken = false,
+        bool hasApiKey = false,
+        String? sessionKey,
+        bool needKey = false,
+        T Function(dynamic json)? fromJsonT}) async {
     params ??= <String, dynamic>{};
 
     /// According to Backend integration with multiple services in a certain API [order-list]:
@@ -76,7 +78,7 @@ class ApiMethodsImpl with CookiesFilter implements ApiMethods {
               options: getOptions(hasToken: hasToken, hasApiKey: hasApiKey, needKey: needKey, sessionKey: sessionKey));
           break;
       }
-      return handleResponse<T>(response);
+      return handleResponse<T>(response, fromJsonT: fromJsonT);
     } on DioException catch (error) {
       return catchError<T>(error);
     }
@@ -107,6 +109,7 @@ class ApiMethodsImpl with CookiesFilter implements ApiMethods {
     if (responseData == null) {
       return BaseApiResult<T>(
         status: response.statusCode,
+        data: response.data,
         error: BaseApiError(
           errorType: DioExceptionType.unknown,
           responseStatusCode: response.statusCode,
@@ -185,7 +188,6 @@ class ApiMethodsImpl with CookiesFilter implements ApiMethods {
           ),
         );
       } catch (e) {
-        // fallback in case the response is not parseable
         return BaseApiResult<E>(
           error: BaseApiError(
             responseStatusCode: dioError.response?.statusCode,
