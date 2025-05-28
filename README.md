@@ -1,36 +1,36 @@
 # Network Layer
 
-A simple and lightweight networking package for Flutter applications that provides an easy-to-use interface for making HTTP requests.
+A simple and lightweight networking package for Flutter applications that provides an easy-to-use interface for making HTTP requests with built-in authentication, token management, and error handling.
 
 ## Installation
 
 Add this to your package's `pubspec.yaml` file:
 
 ```yaml
+dependencies:
   network_layer:
     git:
       url: https://github.com/SlsabelHesham/Network-Layer
 ```
 
-Then run:
+## Quick Start
 
-```bash
-flutter pub get
-```
-
-## Usage
-
-### Initialize the Network Layer
+### 1. Initialize the Network Layer
 
 First, initialize the NetworkLayer with your base URL:
 
 ```dart
 import 'package:network_layer/network_layer.dart';
 
-NetworkLayer.init(baseUrl: "https://jsonplaceholder.typicode.com");
+void main() {
+  // Basic initialization
+  NetworkLayer.init(baseUrl: "https://jsonplaceholder.typicode.com");
+  
+  runApp(MyApp());
+}
 ```
 
-### Making GET Requests
+### 2. Making Simple GET Requests
 
 ```dart
 // Make a GET request
@@ -42,22 +42,86 @@ final result = await NetworkLayer.request(
 print(result); // Prints the response data
 ```
 
-## API Reference
+## Advanced Usage
 
-### NetworkLayer.init()
+### Authentication Setup
 
-Initialize the network layer with configuration options.
+For applications requiring authentication, set up the network layer with an auth interceptor:
 
-**Parameters:**
-- `baseUrl` (String): The base URL for all network requests
+```dart
+void setupNetworkLayer() {
+  final authInterceptor = AuthInterceptor(
+    refreshTokenEndpoint: '/api/Authorization/RefreshToken',
+    onRefreshFailed: () {
+      // Handle refresh token failure (e.g., redirect to login)
+      print('Refresh failed - redirecting to login');
+    },
+  );
 
-### NetworkLayer.request()
+  NetworkLayer.init(
+    baseUrl: "https://your-api-base-url.com",
+    authInterceptor: authInterceptor,
+  );
+}
+```
 
-Make an HTTP request.
+### Generic Response Handling
 
-**Parameters:**
-- `endpoint` (String): The API endpoint (will be appended to base URL)
-- `type` (HttpRequestType): The HTTP method type (get, post, put, delete, etc.)
+Use generic types for type-safe response handling:
 
-**Returns:**
-- `Future<dynamic>`: The response data from the API
+```dart
+// Define your response model
+class LoginResponse {
+  final String token;
+  final User user;
+  
+  LoginResponse({required this.token, required this.user});
+  
+  factory LoginResponse.fromJson(Map<String, dynamic> json) {
+    return LoginResponse(
+      token: json['token'],
+      user: User.fromJson(json['user']),
+    );
+  }
+}
+
+// Make a request with generic type
+final response = await NetworkLayer.request<LoginResponse>(
+  'api/Authorization/Login',
+  type: HttpRequestType.post,
+  data: {
+    "email": "user@example.com",
+    "password": "password123",
+    "rememberMe": true
+  },
+  hasToken: false,
+  fromJsonT: (json) => LoginResponse.fromJson(json),
+);
+
+if (response.error == null) {
+  final loginData = response.data;
+  print('Welcome ${loginData?.user.name}');
+} else {
+  print('Login failed: ${response.error!.errorMessage}');
+}
+```
+
+### Token Management
+
+The package automatically handles token storage and refresh:
+
+```dart
+// Set tokens after successful login
+final accessToken = loginData.response.token.accessToken;
+final refreshToken = loginData.response.token.refreshToken;
+
+NetworkLayer.authTokenManager.setAccessToken(accessToken);
+NetworkLayer.authTokenManager.setRefreshToken(refreshToken);
+
+// Make authenticated requests
+final result = await NetworkLayer.request(
+  'api/user/profile',
+  type: HttpRequestType.get,
+  hasToken: true, // This will automatically include the auth token
+);
+```
