@@ -1,139 +1,260 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../constants/api_urls.dart';
+abstract class TokenStorage {
+  Future<String?> getAccessToken();
+  Future<String?> getRefreshToken();
+  Future<void> setAccessToken(String token);
+  Future<void> setRefreshToken(String token);
+  Future<void> clearTokens();
+}
+
+typedef OnTokenRefreshed = void Function(String accessToken, String refreshToken);
+typedef OnRefreshFailed = void Function();
 
 class AuthInterceptor extends InterceptorsWrapper {
-  late final Dio dio;
+  late final TokenStorage tokenStorage;
+  final String refreshTokenEndpoint;
+  final OnTokenRefreshed? onTokenRefreshed;
+  final OnRefreshFailed? onRefreshFailed;
+  final int unauthorizedStatusCode;
+  final Map<String, String>? customHeaders;
+  final List<String> skipAuthPaths;
 
-  // when accessToken is expired & having multiple requests call
-  // this variable to lock others request to make sure only trigger call refresh token 01 times
-  // to prevent duplicate refresh call
+  late final Dio _dio;
   bool _isRefreshing = false;
+  final _requestsNeedRetry = <({RequestOptions options, ErrorInterceptorHandler handler})>[];
 
-  // when having multiple requests call at the same time, you need to store them in a list
-  // then loop this list to retry every request later, after call refresh token success
-  final _requestsNeedRetry =
-      <({RequestOptions options, ErrorInterceptorHandler handler})>[];
+  AuthInterceptor({
+    required this.refreshTokenEndpoint,
+    this.onTokenRefreshed,
+    this.onRefreshFailed,
+    this.unauthorizedStatusCode = 401,
+    this.customHeaders,
+    this.skipAuthPaths = const [],
+  }) {
+    tokenStorage = _SharedPreferencesTokenStorage();
+  }
 
   @override
-  void onRequest(
-      RequestOptions options, RequestInterceptorHandler handler) async {
-    final accessToken = await getAccessTokenFromLocalStorage();
-    options.headers['authorization'] = 'Bearer $accessToken';
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    if (_shouldSkipAuth(options.path)) {
+      if (customHeaders != null) {
+        options.headers.addAll(customHeaders!);
+      }
+      return handler.next(options);
+    }
+
+    final authRequired = options.extra['authorization_required'] ?? true;
+    if (!authRequired) {
+      if (customHeaders != null) {
+        options.headers.addAll(customHeaders!);
+      }
+      return handler.next(options);
+    }
+
+    final accessToken = await tokenStorage.getAccessToken();
+    if (accessToken != null && accessToken.isNotEmpty) {
+      options.headers['Authorization'] = 'Bearer $accessToken';
+    }
+
+    if (customHeaders != null) {
+      options.headers.addAll(customHeaders!);
+    }
+
     return handler.next(options);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    dio = Dio(BaseOptions(
-        baseUrl: err.requestOptions.path,
-        headers: err.requestOptions.headers,
-        queryParameters: err.requestOptions.queryParameters));
+    _dio = Dio(BaseOptions(
+      baseUrl: _extractBaseUrl(err.requestOptions.baseUrl),
+      headers: err.requestOptions.headers,
+      queryParameters: err.requestOptions.queryParameters,
+    ));
 
     final response = err.response;
+
     if (response != null &&
-        // status code for unauthorized usually 401
-        response.statusCode == 403 &&
-        // refresh token call maybe fail by it self
-        // eg: when refreshToken also is expired -> can't get new accessToken
-        // usually server also return 401 unauthorized for this case
-        // need to exlude it to prevent loop infinite call
-        response.requestOptions.path != "path/your/endpoint/refresh") {
-      // if hasn't not refreshing yet, let's start it
+        response.statusCode == unauthorizedStatusCode &&
+        !_isRefreshEndpoint(response.requestOptions.path)) {
+
       if (!_isRefreshing) {
         _isRefreshing = true;
+        _requestsNeedRetry.add((options: response.requestOptions, handler: handler));
 
-        // add request (requestOptions and handler) to queue and wait to retry later
-        _requestsNeedRetry
-            .add((options: response.requestOptions, handler: handler));
-
-        // call api refresh token
         final isRefreshSuccess = await _refreshToken();
 
         if (isRefreshSuccess) {
-          // refresh success, loop requests need retry
-          for (var requestNeedRetry in _requestsNeedRetry) {
-            // don't need set new accessToken to header here, because these retry
-            // will go through onRequest callback above (where new accessToken will be set to header)
-
-            // won't use await because this loop will take longer -> maybe throw: Unhandled Exception: Concurrent modification during iteration
-            // because method _requestsNeedRetry.add() is called at the same time
-            // final response = await dio.fetch(requestNeedRetry.options);
-            // requestNeedRetry.handler.resolve(response);
-
-            dio.fetch(requestNeedRetry.options).then((response) {
-              requestNeedRetry.handler.resolve(response);
-            }).catchError((_) {});
-          }
-
-          _requestsNeedRetry.clear();
-          _isRefreshing = false;
+          await _retryFailedRequests();
         } else {
-          _requestsNeedRetry.clear();
-          // if refresh fail, force logout user here
+          _clearRequestsAndHandleFailure();
         }
       } else {
-        // if refresh flow is processing, add this request to queue and wait to retry later
-        _requestsNeedRetry
-            .add((options: response.requestOptions, handler: handler));
+        _requestsNeedRetry.add((options: response.requestOptions, handler: handler));
       }
     } else {
-      // ignore other error is not unauthorized
       return handler.next(err);
     }
   }
 
+  bool _shouldSkipAuth(String path) {
+    final defaultSkipPaths = [
+      '/api/Authorization/Login',
+      'api/Authorization/Login',
+      '/api/auth/login',
+      'api/auth/login',
+      '/login',
+      'login',
+    ];
+
+    final allSkipPaths = [...defaultSkipPaths, ...skipAuthPaths];
+
+    return allSkipPaths.any((skipPath) =>
+        path.toLowerCase().contains(skipPath.toLowerCase())
+    );
+  }
+
   Future<bool> _refreshToken() async {
     try {
-      final refreshToken = getRefreshTokenFromLocalStorage();
-      Response res = await callApiRefreshToken(refreshToken);
-      if (res.statusCode == 200) {
-        // save new access + refresh token to your local storage for using later
-        setAccessTokenToLocalStorage(res.data['data']['access_token']);
-        setRefreshTokenToLocalStorage(res.data['data']['refresh_token']);
-        return true;
-      } else {
-        print("refresh token fail ${res.statusMessage ?? res.toString()}");
+      final refreshToken = await tokenStorage.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        if (kDebugMode) {
+          print("No refresh token available");
+        }
         return false;
       }
+
+      final response = await _callRefreshTokenApi(refreshToken);
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final newAccessToken = _extractTokenFromResponse(data, 'access_token');
+        final newRefreshToken = _extractTokenFromResponse(data, 'refresh_token');
+
+        print("tokeeeeen ${newAccessToken} nnnn ${newRefreshToken}");
+        if (newAccessToken != null) {
+          await tokenStorage.setAccessToken(newAccessToken);
+          if (newRefreshToken != null) {
+            await tokenStorage.setRefreshToken(newRefreshToken);
+          }
+
+          // todo
+          // check if this required
+          onTokenRefreshed?.call(newAccessToken, newRefreshToken ?? refreshToken);
+          return true;
+        }
+      }
+
+      if (kDebugMode) {
+        print("Refresh token failed: ${response.statusMessage ?? response.toString()}");
+      }
+      return false;
     } catch (error) {
-      print("refresh token fail $error");
+      if (kDebugMode) {
+        print("Refresh token error: $error");
+      }
       return false;
     }
   }
 
-  getRefreshTokenFromLocalStorage() async {
-    /*
-    return await ProviderScope.containerOf(Routes.navigatorKey.currentContext!,
-            listen: false)
-        .read(sharedPreferencesControllerProvider)
-        .retrieve(CacheType.refreshToken);
-     */
+  Future<Response> _callRefreshTokenApi(String refreshToken) {
+    return _dio.post(
+      refreshTokenEndpoint,
+      data: FormData.fromMap({
+        "refresh_token": refreshToken,
+      }),
+    );
   }
 
-  callApiRefreshToken(refreshToken) {
-    String baseUrl = "";
-    if (dio.options.baseUrl.endsWith('/')) {
-      baseUrl =
-          dio.options.baseUrl.substring(0, dio.options.baseUrl.length - 1);
+  Future<void> _retryFailedRequests() async {
+    for (var requestNeedRetry in _requestsNeedRetry) {
+      _dio.fetch(requestNeedRetry.options).then((response) {
+        requestNeedRetry.handler.resolve(response);
+      }).catchError((error) {
+        requestNeedRetry.handler.reject(error);
+      });
     }
 
-   return dio.post('$baseUrl/${ApiUrls.baseUrl}',
-        data: FormData.fromMap({
-          "refresh_token": refreshToken,
-        }));
+    _requestsNeedRetry.clear();
+    _isRefreshing = false;
   }
 
-  getAccessTokenFromLocalStorage() async {
-    /*
-    return await ProviderScope.containerOf(Routes.navigatorKey.currentContext!,
-            listen: false)
-        .read(sharedPreferencesControllerProvider)
-        .retrieve(CacheType.token);
-     */
+  void _clearRequestsAndHandleFailure() {
+    _requestsNeedRetry.clear();
+    _isRefreshing = false;
+
+    tokenStorage.clearTokens();
+
+    onRefreshFailed?.call();
   }
 
-  void setAccessTokenToLocalStorage(accessToken) {}
+  String _extractBaseUrl(String baseUrl) {
+    if (baseUrl.endsWith('/')) {
+      return baseUrl.substring(0, baseUrl.length - 1);
+    }
+    return baseUrl;
+  }
 
-  void setRefreshTokenToLocalStorage(refreshToken) {}
+  bool _isRefreshEndpoint(String path) {
+    return path.contains(refreshTokenEndpoint);
+  }
+
+  String? _extractTokenFromResponse(dynamic data, String tokenKey) {
+    try {
+      if (data is Map<String, dynamic>) {
+        if (data.containsKey(tokenKey)) {
+          return data[tokenKey]?.toString();
+        }
+
+        if (data.containsKey('data') && data['data'] is Map<String, dynamic>) {
+          final innerData = data['data'] as Map<String, dynamic>;
+          return innerData[tokenKey]?.toString();
+        }
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error extracting token: $e");
+      }
+      return null;
+    }
+  }
+}
+
+class _SharedPreferencesTokenStorage implements TokenStorage {
+  static const String _accessTokenKey = 'access_token';
+  static const String _refreshTokenKey = 'refresh_token';
+
+  @override
+  Future<String?> getAccessToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_accessTokenKey);
+  }
+
+  @override
+  Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshTokenKey);
+  }
+
+  @override
+  Future<void> setAccessToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_accessTokenKey, token);
+  }
+
+  @override
+  Future<void> setRefreshToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_refreshTokenKey, token);
+  }
+
+  @override
+  Future<void> clearTokens() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_accessTokenKey);
+    await prefs.remove(_refreshTokenKey);
+  }
 }

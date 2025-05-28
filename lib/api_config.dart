@@ -2,11 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
+import 'interceptors/auth_interceptor.dart';
 import 'interceptors/interceptor.dart';
 
 class ApiConfig {
   static late Dio _dio;
   static bool _isInitialized = false;
+  static AuthInterceptor? _authInterceptor;
 
   static Dio get dio {
     if (!_isInitialized) {
@@ -36,5 +38,21 @@ class ApiConfig {
 
   static void setBaseUrl(String newBaseUrl) {
     _dio.options.baseUrl = newBaseUrl;
+  }
+
+  static void setAuthInterceptor(AuthInterceptor authInterceptor) {
+    if (_authInterceptor != null) {
+      _dio.interceptors.remove(_authInterceptor!);
+    }
+
+    _authInterceptor = authInterceptor;
+    _dio.interceptors.add(_authInterceptor!);
+  }
+
+  static void removeAuthInterceptor() {
+    if (_authInterceptor != null) {
+      _dio.interceptors.remove(_authInterceptor!);
+      _authInterceptor = null;
+    }
   }
 }

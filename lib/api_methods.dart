@@ -17,6 +17,7 @@ abstract class ApiMethods with AppRequestHandler {
     bool hasApiKey = false,
     bool needKey = false,
     String? sessionKey,
+        T Function(dynamic json)? fromJsonT
   });
 
   Options getOptions({bool hasToken = true});

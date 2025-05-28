@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="ad5352b1-23ef-47d7-881c-ebd56c2f3b03" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.dart_tool/package_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/.dart_tool/package_config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.dart_tool/package_config_subset" beforeDir="false" afterPath="$PROJECT_DIR$/.dart_tool/package_config_subset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/test_cache/build/cache.dill.track.dill" beforeDir="false" afterPath="$PROJECT_DIR$/build/test_cache/build/cache.dill.track.dill" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/unit_test_assets 2/AssetManifest.bin" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/unit_test_assets 2/AssetManifest.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/unit_test_assets 2/FontManifest.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/unit_test_assets 2/NOTICES.Z" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/unit_test_assets 2/NativeAssetsManifest.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/api_methods.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/api_methods.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/api_methods_impl.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/api_methods_impl.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/interceptors/auth_interceptor.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/interceptors/auth_interceptor.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/interceptors/interceptor.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/interceptors/interceptor.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/models/base_response.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/models/base_response.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/network_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/network_layer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/network_layer_test.dart" beforeDir="false" afterPath="$PROJECT_DIR$/test/network_layer_test.dart" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <excluded-from-favorite>
+      <branch-storage>
+        <map>
+          <entry type="LOCAL">
+            <value>
+              <list>
+                <branch-info repo="$PROJECT_DIR$" source="main" />
+              </list>
+            </value>
+          </entry>
+        </map>
+      </branch-storage>
+    </excluded-from-favorite>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="2xa4P34abm4nmUKZBPhg7GDk4cc" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Flutter Test.tests in network_layer_test.dart.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;com.google.services.firebase.aqiPopupShown&quot;: &quot;true&quot;,
+    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;development&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/mohamedelroomy/Documents/Network-Layer&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;AndroidSdkUpdater&quot;,
+    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/lib/helpers" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="tests in network_layer_test.dart" type="FlutterTestConfigType" factoryName="Flutter Test" temporary="true" nameIsGenerated="true">
+      <option name="testFile" value="$PROJECT_DIR$/test/network_layer_test.dart" />
+      <option name="useRegexp" value="false" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Flutter Test.tests in network_layer_test.dart" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="ad5352b1-23ef-47d7-881c-ebd56c2f3b03" name="Changes" comment="" />
+      <created>1748162822574</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1748162822574</updated>
+    </task>
+    <servers />
+  </component>
+</project>
